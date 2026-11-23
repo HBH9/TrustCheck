@@ -357,7 +357,7 @@ details.more[open] summary::before{content:"–"}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.4}
 .check input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--ink);flex:none}
 .thgrid{display:flex;gap:8px;flex-wrap:wrap}
-.thgrid img{width:64px;height:80px;border-radius:10px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.1)}
+.thgrid img{width:64px;height:80px;border-radius:10px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.1)} .thgrid:not(:empty){margin-top:10px} .vth{position:relative;display:inline-block;flex:none} .vth i{position:absolute;left:4px;bottom:4px;background:rgba(15,15,14,.82);color:#fff;font:700 10px/1 var(--sans);font-style:normal;padding:3px 5px;border-radius:6px;white-space:nowrap} .vstrip{display:flex;flex-wrap:wrap;gap:3px;max-width:132px;margin-top:8px} .vstrip b{width:100%;font:700 11px var(--sans);color:#4a4945} .vstrip img{width:30px;height:38px;border-radius:5px;object-fit:cover}
 .scanrow{display:grid;grid-template-columns:64px 1fr 64px;gap:14px;align-items:center;padding:12px;border-radius:16px;background:#fff;box-shadow:0 0 0 1px var(--nav-line)}
 .scanrow img{width:64px;height:80px;border-radius:10px;object-fit:cover}
 .scanrow .ph0{width:64px;height:80px;border-radius:10px;background:var(--nav-search);display:grid;place-items:center;font-size:11px;color:#4a4945;text-align:center}
@@ -646,16 +646,21 @@ details.more[open] summary::before{content:"–"}
               <span class="dt" id="licText"><b>Add a photo of your trade licence</b>Only you and TrustCheck reviewers can see it. It is deleted after review</span>
             </div>
           </div>
-          <div class="sect full">Original photos</div>
+          <div class="sect full">Original photos and videos</div>
           <div class="field full">
             <div class="drop" id="rDrop">
               <input type="file" id="rImgs" accept="image/*" multiple aria-label="Add original photos">
               <span class="dico" style="background:var(--yellow)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m-5 5 5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>
               <span class="dt"><b>Add product or portfolio photos</b>Up to 4. Each one is reduced to a fingerprint for matching</span>
             </div>
-            <div class="thgrid" id="rThumbs"></div>
+            <div class="drop" id="rvDrop" style="margin-top:8px">
+               <input type="file" id="rVids" accept="video/*" multiple aria-label="Add original videos">
+               <span class="dico" style="background:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="13" height="14" rx="3"/><path d="m16 10 5-3v10l-5-3"/></svg></span>
+               <span class="dt" id="rvText"><b>Add product videos</b>Up to 2. Six frames from each are fingerprinted for matching. The video itself is not uploaded</span>
+             </div>
+             <div class="thgrid" id="rThumbs"></div>
           </div>
-          <label class="check full"><input type="checkbox" id="rOwn" required> I am the owner or an authorised manager of this business. The licence and photos are ours, and TrustCheck may check the licence with the authority that issued it.</label>
+          <label class="check full"><input type="checkbox" id="rOwn" required> I am the owner or an authorised manager of this business. The licence, photos and videos are ours, and TrustCheck may check the licence with the authority that issued it.</label>
           <p class="err full" id="regErr" hidden></p>
           <div class="full"><button class="btn" type="submit" id="regBtn">Submit for verification</button></div>
         </form>
@@ -820,7 +825,7 @@ async function fromFile(f){const url=await readFile(f);const img=await loadImg(u
 const VFRAMES=12, VMAX=180;
 const fmtT=t=>{t=Math.max(0,t||0);if(t<60)return t.toFixed(1)+' s';t=Math.round(t);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')};
 function once(el,ev,ms){return new Promise((res,rej)=>{let to;const h=()=>{clearTimeout(to);el.removeEventListener(ev,h);res()};el.addEventListener(ev,h);to=setTimeout(()=>{el.removeEventListener(ev,h);rej(new Error('timeout '+ev))},ms)})}
-async function fromVideo(src,onProgress){
+async function fromVideo(src,onProgress,nf=VFRAMES,tw=120){
   const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.setAttribute('muted','');v.setAttribute('playsinline','');
   const url=typeof src==='string'?src:URL.createObjectURL(src);
   try{
@@ -830,10 +835,10 @@ async function fromVideo(src,onProgress){
     if(!isFinite(d)||!d)d=10;
     const span=Math.min(d,VMAX),W=v.videoWidth||360,H=v.videoHeight||450,k=Math.min(1,360/W);
     const c=cnv(Math.round(W*k),Math.round(H*k)),x=c.getContext('2d');const frames=[];
-    for(let i=0;i<VFRAMES;i++){const t=Math.min(span*(i+.5)/VFRAMES,Math.max(0,d-0.05));
+    for(let i=0;i<nf;i++){const t=Math.min(span*(i+.5)/nf,Math.max(0,d-0.05));
       const sk=once(v,'seeked',6000);v.currentTime=t;await sk;
       if(v.requestVideoFrameCallback)await Promise.race([new Promise(r=>v.requestVideoFrameCallback(()=>r())),new Promise(r=>setTimeout(r,150))]);
-      x.drawImage(v,0,0,c.width,c.height);frames.push({t,hash:hashOf(c),thumb:thumbOf(c,120)});onProgress&&onProgress(i+1)}
+      x.drawImage(v,0,0,c.width,c.height);frames.push({t,hash:hashOf(c),thumb:thumbOf(c,tw)});onProgress&&onProgress(i+1)}
     return{frames,duration:d,checked:span}
   }finally{if(typeof src!=='string')URL.revokeObjectURL(url);v.removeAttribute('src');v.load()}
 }
@@ -930,7 +935,7 @@ function runCheck({q,phone,site,photo,video}){
     if(m.s>=.85){const mm={sim:p,ref:m.ref,owner:m.b,thumb:it.thumb,kind:it.kind,t:it.t};if(!match||mm.sim>match.sim)match=mm;
       const extra=it.kind==='video'&&it.hits>1?` ${it.hits} of the ${it.n} frames checked match.`:'';
       if(biz===m.b&&legit)sig.push([OK,`${it.label} matches original content registered by ${esc(m.b.name)} (${p}% similar).${extra}`]);
-      else if(t||phone){score=Math.min(score,18);sig.push([BAD,`${it.label} shows content registered by <b>${esc(m.b.name)}</b> (${p}% similar to their registered original). This account is reusing it.${extra}`]);if(!biz)biz=m.b;legit=false}
+      else if(t||phone){score=Math.min(score,18);sig.push([BAD,`${it.label} shows content registered by <b>${esc(m.b.name)}</b> (${p}% similar to ${m.ref&&m.ref.v?'a frame of their registered video':'their registered original'}). This account is reusing it.${extra}`]);if(!biz)biz=m.b;legit=false}
       else{score=55;biz=m.b;sig.push([WARN,`${it.it} uses content registered by <b>${esc(m.b.name)}</b>. Only buy it from ${esc(m.b.handle)} or ${esc(m.b.phone)}.`])}}
     else sig.push([WARN,it.kind==='video'?`None of the ${it.n} frames checked from the video match a registered original (closest ${p}%).`:`The photo doesn't match any registered original (closest ${p}%).`])}
   score=Math.max(0,Math.min(100,Math.round(score)));
@@ -959,7 +964,7 @@ function renderResult(r){
    <ul class="signals">${r.sig.map(([k,t])=>`<li><span class="sg ${k}">${ICON[k]}</span><span>${t}</span></li>`).join('')}</ul>
    ${r.match?`<div class="cmp"><figure><img src="${r.match.thumb}" alt="${r.match.kind==='video'?'Frame from the video':'Photo you checked'}"><figcaption><b>${r.match.kind==='video'?'Frame from the video at '+fmtT(r.match.t):'Photo you checked'}</b><br>${esc(r.q||'uploaded')}</figcaption></figure>
      <div class="simbadge"><b>${r.match.sim}%</b><span>similar</span></div>
-     <figure><img src="${imgUrl(r.match.ref)}" alt="Registered original"><figcaption><b>Registered original</b><br>${esc(r.match.owner.name)}</figcaption></figure></div>`:''}
+     <figure><img src="${imgUrl(r.match.ref)}" alt="Registered original"><figcaption><b>${r.match.ref&&r.match.ref.v?'Frame of their registered video':'Registered original'}</b><br>${esc(r.match.owner.name)}</figcaption></figure></div>`:''}
    ${r.vframes?(()=>{const best=r.vframes.reduce((a,f)=>f.m.s>a.m.s?f:a,r.vframes[0]);return`<div class="frames"><p class="fh">${r.vframes.length} frames checked from the video</p><div class="fg">${r.vframes.map(f=>{const p=Math.round(f.m.s*100),hit=f.m.s>=.85;return`<figure class="${hit?'hit':''}${f===best&&hit?' best':''}"><img src="${f.thumb}" alt="Frame at ${fmtT(f.t)}"><figcaption>${fmtT(f.t)} · ${p}%</figcaption></figure>`}).join('')}</div></div>`})():''}
    ${r.biz?bizCard(r.biz):''}
    <div class="res-acts">${r.v!=='legit'&&r.biz?`<button class="btn red" data-act="evidence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 21V4h11l-1.5 4L16 12H5"/></svg>Save evidence &amp; report</button>`:''}
@@ -1005,21 +1010,32 @@ $('#result').addEventListener('click',e=>{const a=e.target.closest('[data-act]')
       notes:r.sig.map(s=>s[1].replace(/<[^>]+>/g,'')).join(' '),orig:r.match?slimRef(r.match.ref):null,found:r.match?r.match.thumb:null,status:'new',score:r.score})}});
 
 /* ================= register (only licensed businesses; a reviewer verifies) ================= */
-let regImgs=[], licImg=null;
+let regImgs=[], regVids=[], licImg=null;
 async function imgFromFile(f){const url=await readFile(f);return loadImg(url)}
 function jpeg(img,maxW,q){const w0=img.naturalWidth||img.width,h0=img.naturalHeight||img.height,k=Math.min(1,maxW/w0),c=cnv(Math.max(1,Math.round(w0*k)),Math.max(1,Math.round(h0*k)));c.getContext('2d').drawImage(img,0,0,c.width,c.height);return c.toDataURL('image/jpeg',q)}
 async function regPhoto(f){const img=await imgFromFile(f);return{hash:hashOf(img),thumb:jpeg(img,200,.7)}}
 async function licenceFrom(f){const img=await imgFromFile(f);let w=1100,q=.62,d=jpeg(img,w,q);while(d.length>110000&&w>500){w-=150;q=Math.max(.42,q-.05);d=jpeg(img,w,q)}return d}
-async function addRegFiles(fs){for(const f of fs.slice(0,4-regImgs.length)){try{regImgs.push(await regPhoto(f))}catch(_){}}$('#rThumbs').innerHTML=regImgs.map(i=>`<img src="${i.thumb}" alt="">`).join('')}
+function renderRegThumbs(){$('#rThumbs').innerHTML=regImgs.map(i=>`<img src="${i.thumb}" alt="">`).join('')+regVids.map(v=>`<span class="vth"><img src="${v.frames[0].thumb}" alt="Video"><i>▶ ${v.frames.length} frames</i></span>`).join('')}
+async function addRegFiles(fs){for(const f of fs.slice(0,4-regImgs.length)){try{regImgs.push(await regPhoto(f))}catch(_){}}renderRegThumbs()}
+const REG_VFRAMES=6;let regVidBusy=false;
+const RV_IDLE='<b>Add product videos</b>Up to 2. Six frames from each are fingerprinted for matching. The video itself is not uploaded';
+async function addRegVideos(fs){if(regVidBusy)return;fs=fs.filter(f=>/^video\//.test(f.type)||/\.(mp4|mov|webm|m4v)$/i.test(f.name)).slice(0,2-regVids.length);if(!fs.length){if(regVids.length>=2)toast('You can add up to 2 videos');return}
+  regVidBusy=true;const dt=$('#rvText'),d=$('#rvDrop');d.classList.add('busy');
+  try{for(const f of fs){dt.innerHTML='<b>Reading video…</b>Taking still frames in your browser';
+    try{const r=await fromVideo(f,n=>{dt.innerHTML=`<b>Reading video… ${n}/${REG_VFRAMES}</b>Taking still frames in your browser`},REG_VFRAMES,240);
+      const fr=[];for(const x of r.frames){let th=x.thumb;try{th=jpeg(await loadImg(x.thumb),240,.6)}catch(_){}fr.push({hash:x.hash,thumb:th,t:Math.round(x.t*10)/10,v:1})}regVids.push({frames:fr})}
+    catch(_){toast("This video couldn't be read here. Try an MP4 from your phone.")}}}
+  finally{regVidBusy=false;d.classList.remove('busy');dt.innerHTML=regVids.length?`<b>${regVids.length} video${regVids.length>1?'s':''} added</b>${regVids.length*REG_VFRAMES} frames will be matched${regVids.length<2?'. You can add 1 more':''}`:RV_IDLE;renderRegThumbs()}}
 $('#rImgs').addEventListener('change',e=>{addRegFiles([...e.target.files]);e.target.value=''});
 wireDrop($('#rDrop'),addRegFiles);
+$('#rVids').addEventListener('change',e=>{addRegVideos([...e.target.files]);e.target.value=''});wireDrop($('#rvDrop'),addRegVideos);
 async function setLicence(f){try{licImg=await licenceFrom(f);$('#licText').innerHTML='<b>Licence added</b>Only you and TrustCheck reviewers can see it. It is deleted after review';
   $('#lDrop').querySelectorAll('.thumb').forEach(n=>n.remove());const im=document.createElement('img');im.className='thumb';im.src=licImg;im.alt='';$('#lDrop').append(im)}
   catch(_){toast("That file couldn't be read as an image. Try a JPG or PNG photo of the licence.")}}
 $('#rLicImg').addEventListener('change',e=>{const f=e.target.files[0];if(f)setLicence(f);e.target.value=''});
 wireDrop($('#lDrop'),fs=>{if(fs[0])setLicence(fs[0])});
 const stripDoc=a=>a.status==='pending'?a:{...a,license:{...a.license,doc:null}};
-function resetReg(){$('#regForm').reset();regImgs=[];licImg=null;$('#rThumbs').innerHTML='';$('#lDrop').querySelectorAll('.thumb').forEach(n=>n.remove());
+function resetReg(){$('#regForm').reset();regImgs=[];regVids=[];licImg=null;$('#rThumbs').innerHTML='';$('#rvText').innerHTML=RV_IDLE;$('#lDrop').querySelectorAll('.thumb').forEach(n=>n.remove());
   $('#licText').innerHTML='<b>Add a photo of your trade licence</b>Only you and TrustCheck reviewers can see it. It is deleted after review'}
 $('#regForm').addEventListener('submit',async e=>{e.preventDefault();const err=$('#regErr'),btn=$('#regBtn');const fail=m=>{err.textContent=m;err.hidden=false};err.hidden=true;
   const name=$('#rName').value.trim();let handle=$('#rHandle').value.trim();if(handle&&!handle.startsWith('@'))handle='@'+handle;
@@ -1028,13 +1044,15 @@ $('#regForm').addEventListener('submit',async e=>{e.preventDefault();const err=$
   if(!exp)return fail('Enter the licence expiry date.');
   if(expired(exp))return fail('This licence has expired. Renew it first, then register with the new expiry date.');
   if(!licImg)return fail('Add a photo or scan of the trade licence so a reviewer can check it.');
-  if(!regImgs.length)return fail('Add at least one original photo so copies can be matched.');
+  if(regVidBusy)return fail('Wait a moment, the video is still being read.');
+  if(!regImgs.length&&!regVids.length)return fail('Add at least one original photo or video so copies can be matched.');
   const lk=licKey(lic);
   const clash=allBiz().find(b=>handleKey(b.handle)===handleKey(handle)||(phone&&phoneKey(b.phone)===phoneKey(phone))||(site&&b.site&&siteKey(b.site)===site)||(b.license&&b.license.key===lk));
   if(clash)return fail(`${clash.name} is already verified with that handle, phone, website or licence. If it's yours, contact TrustCheck to claim it.`);
   if(!name)return fail('Enter the business name.');
   if(direct()&&shared.myApps.some(a=>a.status==='pending'))return fail('You already have an application waiting for review. Withdraw it first to send a new one.');
-  const app={id:newId('a'),name,handle,phone,site,cat,imgs:regImgs.slice(0,4),license:{number:lic,key:lk,authority:auth,expiry:exp,legalName:legal,doc:licImg},status:'pending',created:new Date().toISOString()};
+  const app={id:newId('a'),name,handle,phone,site,cat,imgs:[...regImgs.slice(0,4),...regVids.slice(0,2).flatMap(v=>v.frames)],license:{number:lic,key:lk,authority:auth,expiry:exp,legalName:legal,doc:licImg},status:'pending',created:new Date().toISOString()};
+  if(JSON.stringify(app).length>380000)return fail('The licence, photos and videos are too large together. Remove one video or photo and try again.');
   const viaFile=()=>{const sent=store.get('tc.sent',[])||[];sent.unshift({id:app.id,name,handle,date:app.created.slice(0,10)});store.set('tc.sent',sent.slice(0,10));
     const text=subPack('application',app);resetReg();renderSent();openSend('application',app.name,text,app.id)};
   if(!direct()){viaFile();return}
@@ -1160,7 +1178,7 @@ function appWarnings(a){const w=[],L=a.license||{},lk=L.key;
   return w}
 function appCard(a){const L=a.license||{},st=APPST[a.status]||APPST.pending,k=`${esc(a.owner)}|${esc(a.id)}`;
   return`<article class="case"><div class="case-h"><b>${esc(a.name)}</b><span class="st ${st[1]}">${st[0]}</span>${a.via==='file'?'<span class="tag file">Sent as a file</span>':''}<span class="note" style="margin-left:auto">sent ${fmtDate(String(a.created).slice(0,10))}</span></div>
-   <div class="case-b"><div class="pair">${(a.imgs||[]).slice(0,2).map(i=>`<img src="${i.thumb}" alt="Registered photo">`).join('')}</div>
+   <div class="case-b"><div><div class="pair">${(a.imgs||[]).filter(i=>!i.v).slice(0,2).map(i=>`<img src="${i.thumb}" alt="Registered photo">`).join('')}</div>${(a.imgs||[]).some(i=>i.v)?`<div class="vstrip"><b>▶ Video frames</b>${(a.imgs||[]).filter(i=>i.v).slice(0,12).map(i=>`<img src="${i.thumb}" alt="Video frame">`).join('')}</div>`:''}</div>
    <dl class="kv"><dt>Handle</dt><dd>${esc(a.handle)}</dd>${a.phone?`<dt>Phone</dt><dd>${esc(a.phone)}</dd>`:''}${a.site?`<dt>Website</dt><dd>${esc(a.site)}</dd>`:''}<dt>Category</dt><dd>${esc(a.cat)}</dd>
    <dt>Licence no.</dt><dd>${esc(L.number||'')}</dd><dt>Issued by</dt><dd>${esc(AUTH[L.authority]||'')}</dd><dt>Name on licence</dt><dd>${esc(L.legalName||'')}</dd><dt>Expires</dt><dd>${L.expiry?fmtDate(L.expiry):''}</dd></dl></div>
    ${appWarnings(a).map(t=>`<p class="warnline">${t}</p>`).join('')}
@@ -1291,7 +1309,7 @@ const okImg=v=>typeof v==='string'&&v.length<400000&&/^data:image\/(jpeg|png|web
 const okId=v=>typeof v==='string'&&/^[a-z][a-z0-9]{5,40}$/.test(v);
 async function rehash(thumb){const img=await loadImg(thumb);return{hash:hashOf(img),thumb}}
 async function cleanApp(d){const L=d.license||{};const imgs=[];
-  for(const i of(Array.isArray(d.imgs)?d.imgs:[]).slice(0,4)){if(i&&okImg(i.thumb)){try{imgs.push(await rehash(i.thumb))}catch(_){}}}
+  for(const i of(Array.isArray(d.imgs)?d.imgs:[]).slice(0,16)){if(i&&okImg(i.thumb)){try{const r=await rehash(i.thumb);imgs.push(i.v?{...r,v:1,t:+i.t||0}:r)}catch(_){}}}
   const number=S(L.number,40),name=S(d.name,80);
   if(!name)throw'The file has no business name.';
   if(!/^[A-Za-z0-9][A-Za-z0-9\-\/ ]{3,24}$/.test(number))throw'The licence number in the file is not valid.';
